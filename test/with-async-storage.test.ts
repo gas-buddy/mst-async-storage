@@ -8,7 +8,7 @@ const AsyncStorage = {
   getItem: td.func(),
   setItem: td.func(),
 }
-td.replace("@react-native-async-storage/async-storage", AsyncStorage)
+td.replace("react-native-mmkv", AsyncStorage)
 
 // recreate before each run
 test.beforeEach(t => {
@@ -18,7 +18,7 @@ test.beforeEach(t => {
 
 // --- after mocking ----------------------------------------------------------
 
-import { withAsyncStorage } from "../src/mst-async-storage"
+import { withAsyncStorage } from "../src/mst-async-storage-2"
 
 // --- fixtures ---------------------------------------------------------------
 

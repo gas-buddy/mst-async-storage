@@ -1,17 +1,21 @@
-# mst-async-storage
+# mst-async-storage-2
 
-A [mobx-state-tree](https://github.com/mobxjs/mobx-state-tree) extension granting your models React Native's `AsyncStorage` powers of persistance.
+A [mobx-state-tree](https://github.com/mobxjs/mobx-state-tree) extension granting your models React Native's `async storage` powers of persistance.
 
 # Requirements
 
 - `mobx-state-tree` 2.x or 3.x
 - `react-native` >= 0.56
-- `@react-native-async-storage/async-storage` >= 1.x.x
+- `react-native-mmkv` 2.x
 
 # Installing
 
+Notice that the package depends on `react-native-mmkv`, while it doesn't install `react-native-mmkv` along with itself.
+So the app needs to add the dependency `react-native-mmkv`.
+
 ```sh
-yarn add mst-async-storage
+yarn add mst-async-storage-2
+yarn add react-native-mmkv@x.y.z -- replace "x.y.z" with the actual version
 ```
 
 # Usage
@@ -20,7 +24,7 @@ The following async actions are added:
 
 ```ts
 import { types } from "mobx-state-tree"
-import { withAsyncStorage } from "mst-async-storage"
+import { withAsyncStorage } from "mst-async-storage-2"
 
 export const NiceThingsModel = types
   .model("NiceThings")
@@ -62,7 +66,7 @@ async demo () {
 
 | key      | type             | what it does                                                                        |
 | -------- | ---------------- | ----------------------------------------------------------------------------------- |
-| key      | string           | The key to use when saving to AsyncStorage (default: the model type name)           |
+| key      | string           | The key to use when saving to async storage (default: the model type name)           |
 | autoSave | boolean          | Should we automatically save when any values change on the model? (default: `true`) |
 | only     | string, string[] | will only include the keys with these names                                         |
 | except   | string, string[] | will omit keys with these names                                                     |

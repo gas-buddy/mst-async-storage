@@ -4,21 +4,22 @@ import { types } from "mobx-state-tree"
 
 // --- setup mocking ----------------------------------------------------------
 
-const AsyncStorage = {
-  getItem: td.func(),
-  setItem: td.func(),
+// Replace the react-native-mmkv module with our mock that uses the new API.
+const MMKVMock = {
+  getString: td.func(),
+  set: td.func(),
 }
-td.replace("@react-native-async-storage/async-storage", AsyncStorage)
+td.replace("react-native-mmkv", MMKVMock)
 
 // recreate before each run
-test.beforeEach(t => {
-  AsyncStorage.getItem = td.func()
-  AsyncStorage.setItem = td.func()
+test.beforeEach((t) => {
+  MMKVMock.getString = td.func()
+  MMKVMock.set = td.func()
 })
 
 // --- after mocking ----------------------------------------------------------
 
-import { withAsyncStorage } from "../src/mst-async-storage"
+import { withAsyncStorage } from "../src/with-async-storage"
 
 // --- fixtures ---------------------------------------------------------------
 
@@ -27,7 +28,7 @@ export const SampleModel = types
     name: "",
     age: 0,
   })
-  .actions(self => ({
+  .actions((self) => ({
     setName(value: string) {
       self.name = value
     },
@@ -42,105 +43,107 @@ const NoAutoSaveModel = SampleModel.extend(withAsyncStorage({ autoSave: false })
 
 // --- tests ------------------------------------------------------------------
 
-test("loads only when asked", t => {
+test("loads only when asked", (t) => {
   DefaultModel.create()
-  t.is(td.explain(AsyncStorage.getItem).callCount, 0)
+  t.is(td.explain(MMKVMock.getString).callCount, 0)
 })
 
-test("AsyncStorage loading", async t => {
-  await DefaultModel.create().load()
-  t.is(td.explain(AsyncStorage.getItem).callCount, 1)
+test("mmkv loading", (t) => {
+  DefaultModel.create().load()
+  t.is(td.explain(MMKVMock.getString).callCount, 1)
 })
 
-test("custom key name", async t => {
-  await KeyedModel.create().load()
-  t.is(td.explain(AsyncStorage.getItem).calls[0].args[0], "Jimmy")
+test("custom key name", (t) => {
+  KeyedModel.create().load()
+  t.is(td.explain(MMKVMock.getString).calls[0].args[0], "Jimmy")
 })
 
-test("default key name", async t => {
-  await DefaultModel.create().load()
-  t.is(td.explain(AsyncStorage.getItem).calls[0].args[0], "DefaultModel")
+test("default key name", (t) => {
+  DefaultModel.create().load()
+  t.is(td.explain(MMKVMock.getString).calls[0].args[0], "DefaultModel")
 })
 
-test("won't autosave until loaded", async t => {
+test("won't autosave until loaded", (t) => {
   const model = DefaultModel.create()
   model.setAge(69)
-  t.is(td.explain(AsyncStorage.setItem).callCount, 0)
+  t.is(td.explain(MMKVMock.set).callCount, 0)
 })
 
-test("autosaves after 1st load", async t => {
+test("autosaves after 1st load", (t) => {
   const model = DefaultModel.create()
-  await model.load()
+  model.load()
   model.setAge(69)
-  t.is(td.explain(AsyncStorage.setItem).callCount, 1)
+  t.is(td.explain(MMKVMock.set).callCount, 1)
 })
 
-test("autosave off", async t => {
+test("autosave off", (t) => {
   const model = NoAutoSaveModel.create()
-  await model.load()
+  model.load()
   model.setAge(69)
-  t.is(td.explain(AsyncStorage.setItem).callCount, 0)
+  t.is(td.explain(MMKVMock.set).callCount, 0)
 })
 
-test("saves proper data", async t => {
+test("saves proper data", (t) => {
   const model = DefaultModel.create()
-  await model.load()
+  model.load()
   model.setAge(69)
   model.setName("jimmy")
-  const ex = td.explain(AsyncStorage.setItem)
+  const ex = td.explain(MMKVMock.set)
   const [key, value] = ex.calls[1].args
   t.is(key, "DefaultModel")
   t.deepEqual(JSON.parse(value), { age: 69, name: "jimmy" })
 })
 
-test("save can be called manually", async t => {
+test("save can be called manually", (t) => {
   const model = DefaultModel.create({ age: 1, name: "kid" })
-  await model.save()
-  const ex = td.explain(AsyncStorage.setItem)
+  model.save()
+  const ex = td.explain(MMKVMock.set)
   t.deepEqual(JSON.parse(ex.calls[0].args[1]), { age: 1, name: "kid" })
 })
 
-test("only", async t => {
+test("only", (t) => {
   const Model = SampleModel.extend(withAsyncStorage({ autoSave: false, only: ["age"] }))
   const model = Model.create({ age: 1, name: "kid" })
-  await model.save()
-  const ex = td.explain(AsyncStorage.setItem)
+  model.save()
+  const ex = td.explain(MMKVMock.set)
   t.deepEqual(JSON.parse(ex.calls[0].args[1]), { age: 1 })
 })
 
-test("only with bad key names", async t => {
+test("only with bad key names", (t) => {
   const Model = SampleModel.extend(withAsyncStorage({ autoSave: false, only: ["lol"] }))
   const model = Model.create({ age: 1, name: "kid" })
-  await model.save()
-  const ex = td.explain(AsyncStorage.setItem)
+  model.save()
+  const ex = td.explain(MMKVMock.set)
   t.deepEqual(JSON.parse(ex.calls[0].args[1]), {})
 })
 
-test("except", async t => {
+test("except", (t) => {
   const Model = SampleModel.extend(withAsyncStorage({ autoSave: false, except: ["name"] }))
   const model = Model.create({ age: 1, name: "kid" })
-  await model.save()
-  const ex = td.explain(AsyncStorage.setItem)
+  model.save()
+  const ex = td.explain(MMKVMock.set)
   t.deepEqual(JSON.parse(ex.calls[0].args[1]), { age: 1 })
 })
 
-test("middleware", async t => {
-  const Model = SampleModel.extend(withAsyncStorage({
-    autoSave: false,
-    onLoad(snapshot) {
-      return { name: "adult", ...snapshot }
-    },
-    onSave(snapshot) {
-      const copy = { ...snapshot } as any
-      delete copy.name;
-      return copy
-    },
-  }))
+test("middleware", (t) => {
+  const Model = SampleModel.extend(
+    withAsyncStorage({
+      autoSave: false,
+      onLoad(snapshot) {
+        return { name: "adult", ...snapshot }
+      },
+      onSave(snapshot) {
+        const copy = { ...snapshot } as any
+        delete copy.name
+        return copy
+      },
+    }),
+  )
   const model = Model.create({ age: 1, name: "kid" })
-  await model.save()
-  const ex = td.explain(AsyncStorage.setItem)
+  model.save()
+  const ex = td.explain(MMKVMock.set)
   t.deepEqual(JSON.parse(ex.calls[0].args[1]), { age: 1 })
   const loaded = Model.create()
-  await loaded.load()
+  loaded.load()
   t.is(loaded.name, "adult")
 })
